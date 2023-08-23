@@ -14,6 +14,8 @@ function Register() {
   const formik = useFormik({
     initialValues: {
       username: "",
+      email: "",
+      password: "",
     },
     validate: passwordValidate,
     validateOnBlur: false,
@@ -29,6 +31,7 @@ function Register() {
     const base64 = await convertToBase64(e.target.files[0]);
     setFile(base64);
   };
+
   return (
     <div className="container mx-auto">
       <Toaster position="top-center" reverseOrder={false}></Toaster>
