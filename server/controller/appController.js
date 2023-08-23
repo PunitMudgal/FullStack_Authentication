@@ -97,7 +97,23 @@ export async function login(req, res) {
 
 /** GET /user/example123 */
 export async function getUser(req, res) {
-  res.json("getUser route");
+  const { username } = req.params;
+  console.log("user ______----", username);
+  try {
+    if (!username) return req.status(501).send({ err: "Envalid username!" });
+
+    const findUser = await userModel.findOne({ username });
+    if (findUser) {
+      /** remove password from user */
+      // mongoose return unnecessary data with object so convert it into json
+      const { password, ...rest } = Object.assign({}, findUser.toJSON());
+      return res.status(201).send(rest);
+    } else {
+      return res.status(404).send({ error: "couldn't find the user" });
+    }
+  } catch (error) {
+    return res.status(404).send({ error: "cannot find the user data" });
+  }
 }
 //! get all users
 export async function getAllUser(req, res) {
@@ -107,7 +123,26 @@ export async function getAllUser(req, res) {
 // !------
 /** PUT /updateUser */
 export async function updateUser(req, res) {
-  res.json("updateUser route");
+  try {
+    const id = req.query.id;
+    if (id) {
+      const body = req.body;
+
+      // update the data
+      const updatedInfo = await userModel.updateOne({ _id: id }, body);
+      if (updatedInfo)
+        return res.status(201).send({ msg: "Record Updated!", updatedInfo });
+      else {
+        return res
+          .status(401)
+          .send({ error: "couldn't update the user info!" });
+      }
+    } else {
+      return res.status(401).send({ error: "user not found..!" });
+    }
+  } catch (err) {
+    return res.status(501).send({ err });
+  }
 }
 
 /** GET /generateOTP */
