@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import avatar from "../assets/profile.png";
-import { Toaster } from "react-hot-toast";
+import toast, { Toaster } from "react-hot-toast";
 import { useFormik } from "formik";
 import styles from "../styles/Username.module.css";
-import { passwordValidate } from "../helper/validate";
+import { registerValidation } from "../helper/validate";
 import convertToBase64 from "../helper/convert";
+import { registerUser } from "../helper/helper";
 
 function Register() {
   const [file, setFile] = useState();
@@ -16,13 +17,22 @@ function Register() {
       username: "",
       email: "",
       password: "",
+      profile: "",
     },
-    validate: passwordValidate,
+    validate: registerValidation,
     validateOnBlur: false,
     validateOnChange: false,
     onSubmit: async (values) => {
       values = await Object.assign(values, { profile: file || "" });
-      console.log(values);
+      let registerPromise = registerUser(values);
+      toast.promise(registerPromise, {
+        loading: "Creating Account...",
+        success: "Register Successfull!",
+        error: "Couldn't register",
+      });
+      registerPromise.then(function () {
+        navigate("/profile");
+      });
     },
   });
 
@@ -31,7 +41,6 @@ function Register() {
     const base64 = await convertToBase64(e.target.files[0]);
     setFile(base64);
   };
-
   return (
     <div className="container mx-auto">
       <Toaster position="top-center" reverseOrder={false}></Toaster>

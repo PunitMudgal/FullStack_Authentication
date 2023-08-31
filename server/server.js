@@ -1,15 +1,17 @@
 import express from "express";
 import cors from "cors";
+import bodyParser from "body-parser";
 import morgan from "morgan";
-// import dotenv from "dotenv";
+import dotenv from "dotenv";
 import connectDb from "./config/db_connection.js";
 import router from "./router/route.js";
 
 const app = express();
 
 /** middlewares */
-app.use(express.json());
+app.use(express.json({ extended: false, limit: "50mb" }));
 app.use(cors());
+app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 app.use(morgan("tiny"));
 app.disable("x-powered-by");
 

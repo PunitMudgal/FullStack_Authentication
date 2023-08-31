@@ -2,6 +2,7 @@ import userModel from "../model/userModel.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import ENV from "../config.js";
+import otpGenerator from "otp-generator";
 
 /** middleware for verify user */
 export async function verifyUser(req, res, next) {
@@ -75,7 +76,7 @@ export async function login(req, res) {
 
           //create jwt token
           const token = jwt.sign(
-            { userId: user._id, email: user.email },
+            { userId: user._id, username: user.username, email: user.email },
             ENV.JWT_SECRET,
             { expiresIn: "24h" }
           );
@@ -95,10 +96,9 @@ export async function login(req, res) {
   }
 }
 
-/** GET /user/example123 */
+/** GET /user/:example123 */
 export async function getUser(req, res) {
   const { username } = req.params;
-  console.log("user ______----", username);
   try {
     if (!username) return req.status(501).send({ err: "Envalid username!" });
 
@@ -124,12 +124,13 @@ export async function getAllUser(req, res) {
 /** PUT /updateUser */
 export async function updateUser(req, res) {
   try {
-    const id = req.query.id;
-    if (id) {
+    // const id = req.query.id;
+    const { userId } = req.user;
+    if (userId) {
       const body = req.body;
 
       // update the data
-      const updatedInfo = await userModel.updateOne({ _id: id }, body);
+      const updatedInfo = await userModel.updateOne({ _id: userId }, body);
       if (updatedInfo)
         return res.status(201).send({ msg: "Record Updated!", updatedInfo });
       else {
@@ -147,21 +148,78 @@ export async function updateUser(req, res) {
 
 /** GET /generateOTP */
 export async function generateOTP(req, res) {
-  res.json("generateOTP route");
+  req.app.locals.OTP = await otpGenerator.generate(4, {
+    lowerCaseAlphabets: false,
+    upperCaseAlphabets: false,
+    specialChars: false,
+  });
+  res.status(201).send({ code: req.app.locals.OTP });
 }
 
 /** GET /verifyOTP */
 export async function verifyOTP(req, res) {
-  res.json("verifyOTP route");
+  const { code } = req.query;
+  if (parseInt(req.app.locals.OTP) === parseInt(code)) {
+    req.app.locals.OTP = null; // reset the OTP value
+    req.app.locals.resetSession = true; // start session for reset password
+    return res.status(201).send({ msg: "Verify Successsfully!" });
+  }
+  return res.status(400).send({ error: "Invalid OTP" });
 }
 
 // successfullt refirect user when OTP is valid
 /** GET /createResetSession */
 export async function createResetSession(req, res) {
-  res.json("createResetSession route");
+  if (req.app.locals.resetSession) {
+    return res.status(201).send({ flag: req.app.locals.resetSession });
+  }
+  return res.status(400).send({ error: "session expired!" });
 }
 
 /** PUT /resetPassword */
 export async function resetPassword(req, res) {
-  res.json("resetPassword route");
+  try {
+    if (!req.app.locals.resetSession)
+      return res.status(440).send({ error: "session expired!" });
+    else {
+      const { username, password } = req.body;
+
+      try {
+        userModel
+          .findOne({ username })
+          .then((user) => {
+            bcrypt
+              .hash(password, 10)
+              .then((hashedPassword) => {
+                userModel
+                  .updateOne(
+                    { username: user.username },
+                    { password: hashedPassword }
+                  )
+                  .then((data) => {
+                    req.app.locals.resetSession = false; // reset session
+                    return res.status(201).send({ msg: "record updated!" });
+                  })
+                  .catch((err) => {
+                    return res
+                      .status(500)
+                      .send({ err: "couldn't update the user details!" });
+                  });
+              })
+              .catch((err) => {
+                return res
+                  .status(500)
+                  .send({ err: "enable to hashed password!" });
+              });
+          })
+          .catch((err) => {
+            return res.status(500).send({ err: "user not found!" });
+          });
+      } catch (error) {
+        return res.status(500).send({ error });
+      }
+    }
+  } catch (error) {
+    return res.stauts(501).send({ error });
+  }
 }
